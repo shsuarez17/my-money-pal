@@ -21,6 +21,7 @@ import { Route as AuthenticatedGuideRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedGoalsRouteImport } from './routes/_authenticated/goals'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCryptoRouteImport } from './routes/_authenticated/crypto'
+import { Route as AuthenticatedCustomTypeRouteImport } from './routes/_authenticated/custom/$type'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -81,6 +82,11 @@ const AuthenticatedCryptoRoute = AuthenticatedCryptoRouteImport.update({
   path: '/crypto',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedCustomTypeRoute = AuthenticatedCustomTypeRouteImport.update({
+  id: '/custom/$type',
+  path: '/custom/$type',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/recurring': typeof AuthenticatedRecurringRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/stocks': typeof AuthenticatedStocksRoute
+  '/custom/$type': typeof AuthenticatedCustomTypeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/recurring': typeof AuthenticatedRecurringRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/stocks': typeof AuthenticatedStocksRoute
+  '/custom/$type': typeof AuthenticatedCustomTypeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/_authenticated/recurring': typeof AuthenticatedRecurringRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/stocks': typeof AuthenticatedStocksRoute
+  '/_authenticated/custom/$type': typeof AuthenticatedCustomTypeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/recurring'
     | '/settings'
     | '/stocks'
+    | '/custom/$type'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/recurring'
     | '/settings'
     | '/stocks'
+    | '/custom/$type'
   id:
     | '__root__'
     | '/'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/_authenticated/recurring'
     | '/_authenticated/settings'
     | '/_authenticated/stocks'
+    | '/_authenticated/custom/$type'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -260,6 +272,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCryptoRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/custom/$type': {
+      id: '/_authenticated/custom/$type'
+      path: '/custom/$type'
+      fullPath: '/custom/$type'
+      preLoaderRoute: typeof AuthenticatedCustomTypeRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -271,6 +290,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedRecurringRoute: typeof AuthenticatedRecurringRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedStocksRoute: typeof AuthenticatedStocksRoute
+  AuthenticatedCustomTypeRoute: typeof AuthenticatedCustomTypeRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -281,6 +301,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedRecurringRoute: AuthenticatedRecurringRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedStocksRoute: AuthenticatedStocksRoute,
+  AuthenticatedCustomTypeRoute: AuthenticatedCustomTypeRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

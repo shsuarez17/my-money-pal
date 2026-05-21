@@ -1,9 +1,10 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
-import { LayoutDashboard, LineChart, Bitcoin, Target, RefreshCw, LogOut, Repeat, Settings, BookOpen } from "lucide-react";
+import { LayoutDashboard, LineChart, Bitcoin, Target, RefreshCw, LogOut, Repeat, Settings, BookOpen, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useProfile } from "@/lib/use-profile";
 
 export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async () => {
@@ -18,6 +19,8 @@ function AuthedLayout() {
   const { t, lang, setLang } = useI18n();
   const nav = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const profileQ = useProfile();
+  const customTypes = profileQ.data?.custom_asset_types ?? [];
 
   const items = [
     { to: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
@@ -52,6 +55,21 @@ function AuthedLayout() {
               </Link>
             );
           })}
+          {customTypes.length > 0 && (
+            <div className="pt-3 mt-2 border-t border-border">
+              <p className="px-3 pb-1 text-[10px] uppercase tracking-widest font-mono text-muted-foreground">{t("customSheets")}</p>
+              {customTypes.map((ct) => {
+                const to = `/custom/${encodeURIComponent(ct)}`;
+                const active = path === to;
+                return (
+                  <Link key={ct} to="/custom/$type" params={{ type: ct }}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
+                    <Layers className="size-4" /> <span className="truncate">{ct}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </nav>
         <div className="p-3 border-t border-border space-y-2">
           <button onClick={() => setLang(lang === "es" ? "en" : "es")} className="text-xs font-mono text-muted-foreground hover:text-foreground w-full text-left px-3">

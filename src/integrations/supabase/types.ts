@@ -32,6 +32,36 @@ export type Database = {
         }
         Relationships: []
       }
+      goal_contributions: {
+        Row: {
+          amount_usd: number
+          created_at: string
+          currency: string
+          goal_id: string
+          id: string
+          occurred_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_usd: number
+          created_at?: string
+          currency?: string
+          goal_id: string
+          id?: string
+          occurred_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_usd?: number
+          created_at?: string
+          currency?: string
+          goal_id?: string
+          id?: string
+          occurred_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       goals: {
         Row: {
           color: string | null

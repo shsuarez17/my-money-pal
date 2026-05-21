@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, CalendarIcon, ArrowRight } from "lucide-react";
+import { Plus, Pencil, Trash2, CalendarIcon, ArrowRight, Search } from "lucide-react";
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RTooltip } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useI18n } from "@/lib/i18n";
-import { fmtCurrency, fmtUSD, fmtNum } from "@/lib/format";
+import { fmtCurrency, fmtUSD, fmtNum, fmtPct } from "@/lib/format";
 import { useProfile, useUsdRates, CURRENCIES, type Currency } from "@/lib/use-profile";
 import { toast } from "sonner";
 
@@ -24,16 +25,21 @@ const BUILTIN_TYPE_LABELS: Record<string, string> = {
   CRYPTO: "Cripto",
 };
 
+const CHART_COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)", "var(--chart-6)"];
+
 export function AssetManager({
   title,
   allowedTypes,
   defaultType,
   filterTypes,
+  customTypeName,
 }: {
   title: string;
   allowedTypes: { value: AssetType; label: string }[];
   defaultType: AssetType;
   filterTypes: AssetType[];
+  /** When set, this page represents a user-defined custom sheet. Items are matched by ticker == customTypeName. */
+  customTypeName?: string;
 }) {
   const { t } = useI18n();
   const qc = useQueryClient();
@@ -44,6 +50,12 @@ export function AssetManager({
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Investment | null>(null);
+  const [search, setSearch] = useState("");
+  const [viewCcy, setViewCcy] = useState<Currency>(baseCcy === "USD" ? "COP" : baseCcy);
+
+  useEffect(() => {
+    setViewCcy(baseCcy === "USD" ? "COP" : baseCcy);
+  }, [baseCcy]);
 
   const q = useQuery({
     queryKey: ["investments"],
@@ -54,7 +66,21 @@ export function AssetManager({
     },
   });
 
-  const items = (q.data ?? []).filter((h) => filterTypes.includes(h.asset_type));
+  const allMatching = (q.data ?? []).filter((h) =>
+    customTypeName
+      ? (h.ticker?.toUpperCase() === customTypeName.toUpperCase().slice(0, 8))
+      : filterTypes.includes(h.asset_type)
+  );
+
+  const items = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    if (!s) return allMatching;
+    return allMatching.filter((h) =>
+      h.name.toLowerCase().includes(s) ||
+      (h.platform ?? "").toLowerCase().includes(s) ||
+      (BUILTIN_TYPE_LABELS[h.asset_type] ?? h.asset_type).toLowerCase().includes(s)
+    );
+  }, [allMatching, search]);
 
   // Aggregated summary: group by name + asset_type, sum invested USD
   const summary = useMemo(() => {
@@ -71,6 +97,8 @@ export function AssetManager({
   }, [items]);
 
   const totalUsd = summary.reduce((a, s) => a + s.invested_usd, 0);
+  const numAssets = summary.length;
+  const rate = rates[viewCcy] || 1;
 
   const del = useMutation({
     mutationFn: async (id: string) => {
@@ -84,44 +112,84 @@ export function AssetManager({
     <div className="space-y-6">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <h1 className="text-3xl md:text-4xl font-display font-bold">{title}</h1>
-        <Button onClick={() => { setEditing(null); setOpen(true); }}>
-          <Plus className="size-4 mr-1" /> {t("addAsset")}
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("search")}
+              className="pl-8 w-48 md:w-64"
+            />
+          </div>
+          <Select value={viewCcy} onValueChange={(v) => setViewCcy(v as Currency)}>
+            <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {CURRENCIES.filter((c) => c !== "USD").map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button onClick={() => { setEditing(null); setOpen(true); }}>
+            <Plus className="size-4 mr-1" /> {t("addAsset")}
+          </Button>
+        </div>
       </div>
 
-      {/* SUMMARY TABLE */}
+      {/* SUMMARY + DONUT CHART */}
       {summary.length > 0 && (
-        <div className="card-surface p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">{t("summary")}</h3>
-            <div className="text-xs font-mono text-muted-foreground">
-              {t("totalInvested")}: <span className="text-foreground font-semibold">{fmtUSD(totalUsd)}</span>
-              {baseCcy !== "USD" && <> · <span className="text-foreground font-semibold">{fmtCurrency(totalUsd * rates[baseCcy], baseCcy)}</span></>}
+        <div className="grid lg:grid-cols-3 gap-4">
+          <div className="card-surface p-4 lg:col-span-2">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">{t("summary")}</h3>
+              <div className="text-xs font-mono text-muted-foreground flex items-center gap-3 flex-wrap">
+                <span>{t("numAssets")}: <span className="text-foreground font-semibold">{numAssets}</span></span>
+                <span>{t("totalInvested")}: <span className="text-foreground font-semibold">{fmtUSD(totalUsd)}</span></span>
+                <span className="text-foreground font-semibold">{fmtCurrency(totalUsd * rate, viewCcy)}</span>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-xs uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th className="text-left p-2">{t("assetName")}</th>
+                    <th className="text-left">{t("type")}</th>
+                    <th className="text-right">USD</th>
+                    <th className="text-right">{viewCcy}</th>
+                    <th className="text-right">%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.map((s, i) => (
+                    <tr key={i} className="border-t border-border">
+                      <td className="p-2 font-semibold">
+                        <span className="inline-flex items-center gap-2">
+                          <span className="size-2.5 rounded-full" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
+                          {s.name}
+                        </span>
+                      </td>
+                      <td className="text-xs text-muted-foreground">{BUILTIN_TYPE_LABELS[s.type] ?? s.type}</td>
+                      <td className="text-right tabular font-mono">{fmtUSD(s.invested_usd)}</td>
+                      <td className="text-right tabular font-mono">{fmtCurrency(s.invested_usd * rate, viewCcy)}</td>
+                      <td className="text-right tabular font-mono text-foreground">{totalUsd ? fmtPct(s.invested_usd / totalUsd) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-xs uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="text-left p-2">{t("assetName")}</th>
-                  <th className="text-left">{t("type")}</th>
-                  <th className="text-right">{t("units")}</th>
-                  <th className="text-right">USD</th>
-                  <th className="text-right">{baseCcy}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.map((s, i) => (
-                  <tr key={i} className="border-t border-border">
-                    <td className="p-2 font-semibold">{s.name}</td>
-                    <td className="text-xs text-muted-foreground">{BUILTIN_TYPE_LABELS[s.type] ?? s.type}</td>
-                    <td className="text-right tabular">{s.count}</td>
-                    <td className="text-right tabular font-mono">{fmtUSD(s.invested_usd)}</td>
-                    <td className="text-right tabular font-mono">{baseCcy === "USD" ? "—" : fmtCurrency(s.invested_usd * rates[baseCcy], baseCcy)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          <div className="card-surface p-4">
+            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-2">{t("distributionPct")}</h3>
+            <div className="h-56">
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie data={summary.map((s) => ({ name: s.name, value: s.invested_usd }))}
+                       dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2}>
+                    {summary.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                  </Pie>
+                  <RTooltip formatter={(v: number) => fmtUSD(v)} contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       )}
@@ -140,7 +208,7 @@ export function AssetManager({
                   <th className="text-left">{t("platform")}</th>
                   <th className="text-left">{t("purchaseDate")}</th>
                   <th className="text-right">USD</th>
-                  <th className="text-right">{baseCcy}</th>
+                  <th className="text-right">{viewCcy}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -158,7 +226,7 @@ export function AssetManager({
                       <td className="text-muted-foreground">{h.platform ?? "—"}</td>
                       <td className="text-muted-foreground tabular text-xs">{h.purchase_date ?? "—"}</td>
                       <td className="text-right tabular">{fmtUSD(inv)}</td>
-                      <td className="text-right tabular font-mono">{baseCcy === "USD" ? "—" : fmtCurrency(inv * rates[baseCcy], baseCcy)}</td>
+                      <td className="text-right tabular font-mono">{fmtCurrency(inv * rate, viewCcy)}</td>
                       <td className="text-right pr-3">
                         <Button size="icon" variant="ghost" onClick={() => { setEditing(h); setOpen(true); }}>
                           <Pencil className="size-4" />
@@ -186,18 +254,20 @@ export function AssetManager({
         rates={rates}
         knownNames={Array.from(new Set((q.data ?? []).map((h) => h.name))).filter(Boolean)}
         customTypes={profileQ.data?.custom_asset_types ?? []}
+        forceCustomTicker={customTypeName}
       />
     </div>
   );
 }
 
 function AssetDialog({
-  open, onClose, editing, allowedTypes, defaultType, baseCurrency, rates, knownNames, customTypes,
+  open, onClose, editing, allowedTypes, defaultType, baseCurrency, rates, knownNames, customTypes, forceCustomTicker,
 }: {
   open: boolean; onClose: () => void; editing: Investment | null;
   allowedTypes: { value: AssetType; label: string }[]; defaultType: AssetType;
   baseCurrency: Currency; rates: Record<Currency, number>;
   knownNames: string[]; customTypes: string[];
+  forceCustomTicker?: string;
 }) {
   const { t } = useI18n();
   const qc = useQueryClient();
@@ -242,7 +312,7 @@ function AssetDialog({
         user_id: u.user.id,
         // Built-in enum types only persisted as enum; custom types are recorded in name/ticker
         asset_type: (allowedTypes.some((a) => a.value === form.asset_type) ? form.asset_type : defaultType) as AssetType,
-        ticker: (form.name.trim().slice(0, 8) || form.asset_type).toUpperCase(),
+        ticker: (forceCustomTicker ?? (form.name.trim().slice(0, 8) || form.asset_type)).toUpperCase().slice(0, 8),
         name: form.name.trim() || form.asset_type,
         platform: form.platform.trim() || null,
         currency: form.currency,
