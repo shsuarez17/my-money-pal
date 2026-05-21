@@ -59,7 +59,7 @@ function GoalsPage() {
         .select("*")
         .order("occurred_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Array<{
+      return ((data ?? []) as unknown) as Array<{
         id: string; goal_id: string; amount_usd: number; currency: string; occurred_at: string;
       }>;
     },
