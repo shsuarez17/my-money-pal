@@ -14,7 +14,268 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      fx_rates: {
+        Row: {
+          pair: string
+          rate: number
+          updated_at: string
+        }
+        Insert: {
+          pair: string
+          rate: number
+          updated_at?: string
+        }
+        Update: {
+          pair?: string
+          rate?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      goals: {
+        Row: {
+          color: string | null
+          created_at: string
+          currency: string
+          id: string
+          name: string
+          start_date: string | null
+          target_amount_usd: number
+          target_date: string | null
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          name: string
+          start_date?: string | null
+          target_amount_usd: number
+          target_date?: string | null
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          name?: string
+          start_date?: string | null
+          target_amount_usd?: number
+          target_date?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      investments: {
+        Row: {
+          asset_type: Database["public"]["Enums"]["asset_type"]
+          avg_cost_usd: number
+          created_at: string
+          currency: string
+          current_price_usd: number
+          id: string
+          name: string
+          notes: string | null
+          platform: string | null
+          price_updated_at: string | null
+          purchase_date: string
+          quantity: number
+          ticker: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asset_type: Database["public"]["Enums"]["asset_type"]
+          avg_cost_usd?: number
+          created_at?: string
+          currency?: string
+          current_price_usd?: number
+          id?: string
+          name: string
+          notes?: string | null
+          platform?: string | null
+          price_updated_at?: string | null
+          purchase_date?: string
+          quantity?: number
+          ticker: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asset_type?: Database["public"]["Enums"]["asset_type"]
+          avg_cost_usd?: number
+          created_at?: string
+          currency?: string
+          current_price_usd?: number
+          id?: string
+          name?: string
+          notes?: string | null
+          platform?: string | null
+          price_updated_at?: string | null
+          purchase_date?: string
+          quantity?: number
+          ticker?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      portfolio_snapshots: {
+        Row: {
+          created_at: string
+          id: string
+          invested_usd: number
+          snapshot_date: string
+          total_cop: number
+          total_usd: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invested_usd: number
+          snapshot_date: string
+          total_cop: number
+          total_usd: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invested_usd?: number
+          snapshot_date?: string
+          total_cop?: number
+          total_usd?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          base_currency: string
+          created_at: string
+          custom_asset_types: string[]
+          display_name: string | null
+          id: string
+          language: string
+          updated_at: string
+        }
+        Insert: {
+          base_currency?: string
+          created_at?: string
+          custom_asset_types?: string[]
+          display_name?: string | null
+          id: string
+          language?: string
+          updated_at?: string
+        }
+        Update: {
+          base_currency?: string
+          created_at?: string
+          custom_asset_types?: string[]
+          display_name?: string | null
+          id?: string
+          language?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      recurring_contributions: {
+        Row: {
+          active: boolean
+          amount_usd: number
+          created_at: string
+          currency: string
+          frequency: Database["public"]["Enums"]["recur_freq"]
+          id: string
+          investment_id: string | null
+          next_run: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          amount_usd: number
+          created_at?: string
+          currency?: string
+          frequency: Database["public"]["Enums"]["recur_freq"]
+          id?: string
+          investment_id?: string | null
+          next_run: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          amount_usd?: number
+          created_at?: string
+          currency?: string
+          frequency?: Database["public"]["Enums"]["recur_freq"]
+          id?: string
+          investment_id?: string | null
+          next_run?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_contributions_investment_id_fkey"
+            columns: ["investment_id"]
+            isOneToOne: false
+            referencedRelation: "investments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount_usd: number
+          created_at: string
+          fx_usd_cop: number | null
+          id: string
+          investment_id: string | null
+          note: string | null
+          occurred_at: string
+          price_usd: number
+          quantity: number
+          tx_type: Database["public"]["Enums"]["tx_type"]
+          user_id: string
+        }
+        Insert: {
+          amount_usd?: number
+          created_at?: string
+          fx_usd_cop?: number | null
+          id?: string
+          investment_id?: string | null
+          note?: string | null
+          occurred_at?: string
+          price_usd?: number
+          quantity?: number
+          tx_type: Database["public"]["Enums"]["tx_type"]
+          user_id: string
+        }
+        Update: {
+          amount_usd?: number
+          created_at?: string
+          fx_usd_cop?: number | null
+          id?: string
+          investment_id?: string | null
+          note?: string | null
+          occurred_at?: string
+          price_usd?: number
+          quantity?: number
+          tx_type?: Database["public"]["Enums"]["tx_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_investment_id_fkey"
+            columns: ["investment_id"]
+            isOneToOne: false
+            referencedRelation: "investments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +284,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      asset_type: "STOCK_US" | "STOCK_CO" | "ETF" | "CRYPTO" | "BOND" | "OTHER"
+      recur_freq: "WEEKLY" | "BIWEEKLY" | "MONTHLY"
+      tx_type: "BUY" | "SELL" | "DEPOSIT" | "DIVIDEND"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +413,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      asset_type: ["STOCK_US", "STOCK_CO", "ETF", "CRYPTO", "BOND", "OTHER"],
+      recur_freq: ["WEEKLY", "BIWEEKLY", "MONTHLY"],
+      tx_type: ["BUY", "SELL", "DEPOSIT", "DIVIDEND"],
+    },
   },
 } as const
