@@ -1,0 +1,3 @@
+ALTER TABLE public.investments
+  ADD COLUMN IF NOT EXISTS currency text NOT NULL DEFAULT 'USD',
+  ADD COLUMN IF NOT EXISTS purchase_date date NOT NULL DEFAULT CURRENT_DATE;
