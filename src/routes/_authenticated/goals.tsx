@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, PiggyBank } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -36,6 +36,13 @@ function GoalsPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  // Contribution dialog state
+  const [contribOpen, setContribOpen] = useState(false);
+  const [contribGoalId, setContribGoalId] = useState<string | null>(null);
+  const [contribGoalCcy, setContribGoalCcy] = useState<Currency>("USD");
+  const [contribAmount, setContribAmount] = useState("");
+  const [contribCurrency, setContribCurrency] = useState<Currency>("USD");
+
   const goalsQ = useQuery({
     queryKey: ["goals"],
     queryFn: async () => {
@@ -44,15 +51,24 @@ function GoalsPage() {
     },
   });
 
-  const invQ = useQuery({
-    queryKey: ["investments"],
+  const contribsQ = useQuery({
+    queryKey: ["goal_contributions"],
     queryFn: async () => {
-      const { data } = await supabase.from("investments").select("quantity,current_price_usd");
-      return data ?? [];
+      const { data, error } = await supabase
+        .from("goal_contributions" as any)
+        .select("*")
+        .order("occurred_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string; goal_id: string; amount_usd: number; currency: string; occurred_at: string;
+      }>;
     },
   });
 
-  const totalUsd = (invQ.data ?? []).reduce((a, h) => a + Number(h.quantity) * Number(h.current_price_usd), 0);
+  const totalsByGoal = new Map<string, number>();
+  for (const c of contribsQ.data ?? []) {
+    totalsByGoal.set(c.goal_id, (totalsByGoal.get(c.goal_id) ?? 0) + Number(c.amount_usd));
+  }
 
   const add = useMutation({
     mutationFn: async () => {
@@ -82,6 +98,38 @@ function GoalsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["goals"] }),
   });
 
+  const addContrib = useMutation({
+    mutationFn: async () => {
+      if (!contribGoalId) throw new Error("missing goal");
+      const { data: u } = await supabase.auth.getUser();
+      const amt = Number(contribAmount);
+      if (!amt) throw new Error("invalid amount");
+      const amountUsd = contribCurrency === "USD" ? amt : amt / (rates[contribCurrency] || 1);
+      const { error } = await supabase.from("goal_contributions" as any).insert({
+        user_id: u.user!.id,
+        goal_id: contribGoalId,
+        amount_usd: amountUsd,
+        currency: contribCurrency,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["goal_contributions"] });
+      setContribOpen(false);
+      setContribAmount("");
+      toast.success(t("saved"));
+    },
+    onError: (e: any) => toast.error(e?.message ?? t("error")),
+  });
+
+  const delContrib = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("goal_contributions" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["goal_contributions"] }),
+  });
+
   const previewWeeks = weeksBetween(startDate, endDate);
 
   return (
@@ -97,10 +145,15 @@ function GoalsPage() {
         )}
         {(goalsQ.data ?? []).map((g) => {
           const goalCcy = (g.currency as Currency) ?? "USD";
-          const targetInCcy = Number(g.target_amount_usd) * (rates[goalCcy] || 1);
-          const totalInCcy = totalUsd * (rates[goalCcy] || 1);
-          const pct = Math.min(1, totalUsd / Number(g.target_amount_usd));
+          const r = rates[goalCcy] || 1;
+          const targetUsd = Number(g.target_amount_usd);
+          const targetInCcy = targetUsd * r;
+          const accumulatedUsd = totalsByGoal.get(g.id) ?? 0;
+          const accumulatedInCcy = accumulatedUsd * r;
+          const pct = targetUsd > 0 ? accumulatedUsd / targetUsd : 0;
           const wk = weeksBetween(g.start_date, g.target_date);
+          const myContribs = (contribsQ.data ?? []).filter((c) => c.goal_id === g.id);
+          const over = pct > 1;
           return (
             <div key={g.id} className="card-surface p-5">
               <div className="flex items-start justify-between">
@@ -111,23 +164,56 @@ function GoalsPage() {
                     {wk > 0 && <span className="ml-2 font-mono">· {wk} {t("weeks")}</span>}
                   </p>
                 </div>
-                <Button size="icon" variant="ghost" onClick={() => del.mutate(g.id)}>
-                  <Trash2 className="size-4 text-destructive" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button size="sm" variant="secondary" onClick={() => {
+                    setContribGoalId(g.id);
+                    setContribGoalCcy(goalCcy);
+                    setContribCurrency(goalCcy);
+                    setContribAmount("");
+                    setContribOpen(true);
+                  }}>
+                    <PiggyBank className="size-4 mr-1" /> {t("addContribution")}
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={() => del.mutate(g.id)}>
+                    <Trash2 className="size-4 text-destructive" />
+                  </Button>
+                </div>
               </div>
               <div className="mt-4">
                 <div className="flex justify-between text-sm mb-1.5">
                   <span className="text-muted-foreground">{t("progress")}</span>
-                  <span className="font-mono tabular">{fmtCurrency(totalInCcy, goalCcy)} / {fmtCurrency(targetInCcy, goalCcy)}</span>
+                  <span className="font-mono tabular">{fmtCurrency(accumulatedInCcy, goalCcy)} / {fmtCurrency(targetInCcy, goalCcy)}</span>
                 </div>
-                <Progress value={pct * 100} />
-                <p className="text-right text-xs text-muted-foreground mt-1 font-mono">{(pct * 100).toFixed(1)}%</p>
+                <Progress value={Math.min(100, pct * 100)} />
+                <p className={`text-right text-xs mt-1 font-mono ${over ? "text-success font-semibold" : "text-muted-foreground"}`}>
+                  {(pct * 100).toFixed(1)}% {over && `· ${t("overflow")}`}
+                </p>
               </div>
+
+              {myContribs.length > 0 && (
+                <div className="mt-4 border-t border-border pt-3">
+                  <p className="text-xs uppercase tracking-wider font-mono text-muted-foreground mb-2">{t("contributions")}</p>
+                  <ul className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                    {myContribs.map((c) => (
+                      <li key={c.id} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{new Date(c.occurred_at).toLocaleDateString()}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono">{fmtCurrency(Number(c.amount_usd) * r, goalCcy)}</span>
+                          <button onClick={() => delContrib.mutate(c.id)} className="text-muted-foreground hover:text-destructive">
+                            <Trash2 className="size-3" />
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
+      {/* Add goal dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>{t("addGoal")}</DialogTitle></DialogHeader>
@@ -161,6 +247,42 @@ function GoalsPage() {
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>{t("cancel")}</Button>
             <Button onClick={() => add.mutate()} disabled={!name || !target || add.isPending}>{t("save")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Contribution dialog */}
+      <Dialog open={contribOpen} onOpenChange={setContribOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t("addContribution")}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-[1fr_120px] gap-2">
+              <div>
+                <Label>{t("contributionAmount")}</Label>
+                <Input type="number" inputMode="decimal" step="any" value={contribAmount} onChange={(e) => setContribAmount(e.target.value)} />
+              </div>
+              <div>
+                <Label>{t("currency")}</Label>
+                <Select value={contribCurrency} onValueChange={(v) => setContribCurrency(v as Currency)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {contribAmount && (
+              <div className="text-xs font-mono text-muted-foreground">
+                ≈ {fmtCurrency(
+                  (Number(contribAmount) / (rates[contribCurrency] || 1)) * (rates[contribGoalCcy] || 1),
+                  contribGoalCcy
+                )} ({contribGoalCcy})
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setContribOpen(false)}>{t("cancel")}</Button>
+            <Button onClick={() => addContrib.mutate()} disabled={!contribAmount || addContrib.isPending}>{t("save")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
