@@ -105,6 +105,7 @@ export type Database = {
           created_at: string
           currency: string
           current_price_usd: number
+          external_id: string | null
           id: string
           name: string
           notes: string | null
@@ -112,6 +113,7 @@ export type Database = {
           price_updated_at: string | null
           purchase_date: string
           quantity: number
+          source: string | null
           ticker: string
           updated_at: string
           user_id: string
@@ -122,6 +124,7 @@ export type Database = {
           created_at?: string
           currency?: string
           current_price_usd?: number
+          external_id?: string | null
           id?: string
           name: string
           notes?: string | null
@@ -129,6 +132,7 @@ export type Database = {
           price_updated_at?: string | null
           purchase_date?: string
           quantity?: number
+          source?: string | null
           ticker: string
           updated_at?: string
           user_id: string
@@ -139,6 +143,7 @@ export type Database = {
           created_at?: string
           currency?: string
           current_price_usd?: number
+          external_id?: string | null
           id?: string
           name?: string
           notes?: string | null
@@ -146,6 +151,7 @@ export type Database = {
           price_updated_at?: string | null
           purchase_date?: string
           quantity?: number
+          source?: string | null
           ticker?: string
           updated_at?: string
           user_id?: string
@@ -255,6 +261,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      snaptrade_users: {
+        Row: {
+          created_at: string
+          snaptrade_user_id: string
+          user_id: string
+          user_secret: string
+        }
+        Insert: {
+          created_at?: string
+          snaptrade_user_id: string
+          user_id: string
+          user_secret: string
+        }
+        Update: {
+          created_at?: string
+          snaptrade_user_id?: string
+          user_id?: string
+          user_secret?: string
+        }
+        Relationships: []
       }
       transactions: {
         Row: {
