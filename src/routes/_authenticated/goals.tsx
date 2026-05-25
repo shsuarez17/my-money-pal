@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, PiggyBank } from "lucide-react";
+import { Plus, Trash2, PiggyBank, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -30,6 +30,7 @@ function GoalsPage() {
   const rates = ratesQ.data ?? { USD: 1, COP: 4000, EUR: 0.92, MXN: 18, BRL: 5 };
 
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
   const [currency, setCurrency] = useState<Currency>("USD");
@@ -75,19 +76,31 @@ function GoalsPage() {
       const { data: u } = await supabase.auth.getUser();
       const targetNum = Number(target);
       const targetUsd = currency === "USD" ? targetNum : targetNum / (rates[currency] || 1);
-      const { error } = await supabase.from("goals").insert({
-        user_id: u.user!.id,
-        name: name.trim(),
-        target_amount_usd: targetUsd,
-        currency,
-        start_date: startDate || null,
-        target_date: endDate || null,
-      });
-      if (error) throw error;
+      if (editingId) {
+        const { error } = await supabase.from("goals").update({
+          name: name.trim(),
+          target_amount_usd: targetUsd,
+          currency,
+          start_date: startDate || null,
+          target_date: endDate || null,
+        }).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("goals").insert({
+          user_id: u.user!.id,
+          name: name.trim(),
+          target_amount_usd: targetUsd,
+          currency,
+          start_date: startDate || null,
+          target_date: endDate || null,
+        });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["goals"] });
       setOpen(false);
+      setEditingId(null);
       setName(""); setTarget(""); setStartDate(""); setEndDate(""); setCurrency("USD");
       toast.success(t("saved"));
     },
@@ -136,7 +149,11 @@ function GoalsPage() {
     <div className="space-y-6">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <h1 className="text-3xl md:text-4xl font-display font-bold">{t("goals")}</h1>
-        <Button onClick={() => setOpen(true)}><Plus className="size-4 mr-1" />{t("addGoal")}</Button>
+        <Button onClick={() => {
+          setEditingId(null);
+          setName(""); setTarget(""); setStartDate(""); setEndDate(""); setCurrency("USD");
+          setOpen(true);
+        }}><Plus className="size-4 mr-1" />{t("addGoal")}</Button>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
@@ -173,6 +190,17 @@ function GoalsPage() {
                     setContribOpen(true);
                   }}>
                     <PiggyBank className="size-4 mr-1" /> {t("addContribution")}
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={() => {
+                    setEditingId(g.id);
+                    setName(g.name);
+                    setCurrency(goalCcy);
+                    setTarget(String((Number(g.target_amount_usd) * r).toFixed(2)));
+                    setStartDate(g.start_date ?? "");
+                    setEndDate(g.target_date ?? "");
+                    setOpen(true);
+                  }}>
+                    <Pencil className="size-4" />
                   </Button>
                   <Button size="icon" variant="ghost" onClick={() => del.mutate(g.id)}>
                     <Trash2 className="size-4 text-destructive" />
@@ -214,9 +242,9 @@ function GoalsPage() {
       </div>
 
       {/* Add goal dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditingId(null); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{t("addGoal")}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingId ? "Editar meta" : t("addGoal")}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>{t("goalName")}</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
             <div className="grid grid-cols-[1fr_120px] gap-2">
