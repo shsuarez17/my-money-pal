@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Play, Link2 } from "lucide-react";
+import { Plus, Trash2, Play, Link2, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ function RecurringPage() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [freq, setFreq] = useState<Freq>("MONTHLY");
   const [next, setNext] = useState(new Date().toISOString().slice(0, 10));
@@ -87,12 +88,19 @@ function RecurringPage() {
         investment_id: investmentId || null,
         goal_id: goalId || null,
       };
-      const { error } = await supabase.from("recurring_contributions").insert(payload);
-      if (error) throw error;
+      if (editingId) {
+        const { user_id, ...upd } = payload;
+        const { error } = await supabase.from("recurring_contributions").update(upd).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("recurring_contributions").insert(payload);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["recurring"] });
       setOpen(false);
+      setEditingId(null);
       setAmount(""); setCategory("NONE"); setInvestmentId(""); setGoalId("");
       toast.success(t("saved"));
     },
@@ -209,7 +217,12 @@ function RecurringPage() {
     <div className="space-y-6">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <h1 className="text-3xl md:text-4xl font-display font-bold">{t("recurring")}</h1>
-        <Button onClick={() => setOpen(true)}><Plus className="size-4 mr-1" />{t("addRecurring")}</Button>
+        <Button onClick={() => {
+          setEditingId(null);
+          setAmount(""); setFreq("MONTHLY"); setNext(new Date().toISOString().slice(0,10));
+          setCategory("NONE"); setInvestmentId(""); setGoalId("");
+          setOpen(true);
+        }}><Plus className="size-4 mr-1" />{t("addRecurring")}</Button>
       </div>
 
       <div className="card-surface p-2 md:p-4">
@@ -254,9 +267,23 @@ function RecurringPage() {
                     )}
                   </td>
                   <td className="text-right pr-3">
-                    <Button size="icon" variant="ghost" onClick={() => del.mutate(r.id)}>
-                      <Trash2 className="size-4 text-destructive" />
-                    </Button>
+                    <div className="inline-flex items-center gap-1">
+                      <Button size="icon" variant="ghost" onClick={() => {
+                        setEditingId(r.id);
+                        setAmount(String(r.amount_usd));
+                        setFreq(r.frequency as Freq);
+                        setNext(r.next_run);
+                        setCategory((r.asset_category as Category) ?? "NONE");
+                        setInvestmentId(r.investment_id ?? "");
+                        setGoalId(r.goal_id ?? "");
+                        setOpen(true);
+                      }}>
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => del.mutate(r.id)}>
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -265,9 +292,9 @@ function RecurringPage() {
         )}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setEditingId(null); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{t("addRecurring")}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingId ? "Editar aporte recurrente" : t("addRecurring")}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><Label>{t("amount")} (USD)</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
             <div>
