@@ -222,33 +222,42 @@ export type Database = {
         Row: {
           active: boolean
           amount_usd: number
+          asset_category: string | null
           created_at: string
           currency: string
           frequency: Database["public"]["Enums"]["recur_freq"]
+          goal_id: string | null
           id: string
           investment_id: string | null
+          last_run: string | null
           next_run: string
           user_id: string
         }
         Insert: {
           active?: boolean
           amount_usd: number
+          asset_category?: string | null
           created_at?: string
           currency?: string
           frequency: Database["public"]["Enums"]["recur_freq"]
+          goal_id?: string | null
           id?: string
           investment_id?: string | null
+          last_run?: string | null
           next_run: string
           user_id: string
         }
         Update: {
           active?: boolean
           amount_usd?: number
+          asset_category?: string | null
           created_at?: string
           currency?: string
           frequency?: Database["public"]["Enums"]["recur_freq"]
+          goal_id?: string | null
           id?: string
           investment_id?: string | null
+          last_run?: string | null
           next_run?: string
           user_id?: string
         }
