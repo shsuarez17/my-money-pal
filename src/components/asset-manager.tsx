@@ -207,11 +207,24 @@ export function AssetManager({
             <div className="h-56">
               <ResponsiveContainer>
                 <PieChart>
-                  <Pie data={summary.map((s) => ({ name: s.name, value: s.invested_usd }))}
-                       dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2}>
-                    {summary.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    label={({ pct }: any) => (pct >= 0.03 ? `${(pct * 100).toFixed(1)}%` : "")}
+                    labelLine={false}
+                  >
+                    {chartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                   </Pie>
-                  <RTooltip formatter={(v: number) => fmtUSD(v)} contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12 }} />
+                  <RTooltip
+                    formatter={(v: number, _n, p: any) => [`${fmtUSD(v)} (${((p?.payload?.pct ?? 0) * 100).toFixed(2)}%)`, p?.payload?.name]}
+                    contentStyle={{ background: "rgba(0,0,0,0.85)", border: "1px solid var(--border)", borderRadius: 12, color: "#fff" }}
+                    itemStyle={{ color: "#fff" }}
+                    labelStyle={{ color: "#fff" }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
