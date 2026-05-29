@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Layers, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n, type Lang } from "@/lib/i18n";
 import { useProfile, CURRENCIES, type Currency } from "@/lib/use-profile";
@@ -79,9 +79,10 @@ function SettingsPage() {
           </Select>
         </div>
 
-        <div>
-          <Label>{t("customAssetTypes")}</Label>
-          <div className="flex gap-2 mt-1.5">
+        <div className="border-t border-border pt-4">
+          <Label className="text-base font-display">{t("customAssetTypes")}</Label>
+          <p className="text-sm text-muted-foreground mt-1 mb-3">{t("customAssetTypesHelp")}</p>
+          <div className="flex gap-2">
             <Input
               value={newType}
               onChange={(e) => setNewType(e.target.value)}
@@ -91,14 +92,24 @@ function SettingsPage() {
             <Button type="button" variant="secondary" onClick={addType}><Plus className="size-4 mr-1" />{t("addType")}</Button>
           </div>
           {types.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-3">
+            <div className="grid gap-2 mt-4">
               {types.map((tp) => (
-                <span key={tp} className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-sm">
-                  {tp}
-                  <button type="button" onClick={() => removeType(tp)} className="text-muted-foreground hover:text-destructive">
-                    <X className="size-3.5" />
-                  </button>
-                </span>
+                <div key={tp} className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Layers className="size-4 text-primary shrink-0" />
+                    <span className="text-sm truncate">{tp}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Link to="/custom/$type" params={{ type: tp }}>
+                      <Button type="button" variant="ghost" size="sm">
+                        <ExternalLink className="size-3.5 mr-1" />{t("openPanel")}
+                      </Button>
+                    </Link>
+                    <button type="button" onClick={() => removeType(tp)} className="p-1 text-muted-foreground hover:text-destructive" aria-label={t("delete")}>
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           )}
