@@ -22,6 +22,15 @@ function AuthedLayout() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const profileQ = useProfile();
   const customTypes = profileQ.data?.custom_asset_types ?? [];
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 300);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
   const items = [
     { to: "/dashboard", label: t("dashboard"), icon: LayoutDashboard },
@@ -82,7 +91,7 @@ function AuthedLayout() {
         </div>
       </aside>
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 relative">
         {/* mobile nav */}
         <div className="md:hidden flex items-center gap-2 overflow-x-auto p-3 border-b border-border bg-card/40">
           {items.map((it) => {
@@ -98,6 +107,17 @@ function AuthedLayout() {
         <main className="p-4 md:p-8 max-w-7xl mx-auto">
           <Outlet />
         </main>
+
+        {showScrollTop && (
+          <Button
+            size="icon"
+            onClick={scrollToTop}
+            className="fixed bottom-6 right-6 z-50 rounded-full shadow-lg"
+            aria-label="Volver arriba"
+          >
+            <ArrowUp className="size-4" />
+          </Button>
+        )}
       </div>
     </div>
   );
